@@ -1,3 +1,4 @@
+import { signingWorkspaceHTML } from './signing-workspace.js';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 
@@ -15,11 +16,7 @@ export function renderIntegratedView(section, companies=[]) {
   if (section === 'tasks') return `<section class="module-header"><div><p class="eyebrow">TASK MANAGEMENT</p><h1>Secretarial Task Hub V3</h1><p class="muted">Original Kanban, deadlines, recurrence, checklist, calendar and task workflow.</p></div><span class="module-chip">Private cloud sync</span></section>
     <div class="module-notice">Your Task Hub data syncs with your Supabase account after installing the included SQL setup. To restore tasks from your original EdgeOne website, use its <strong>Export backup</strong>, then import that JSON file inside Task Hub here. Do not import a confidential backup into GitHub.</div>
     <iframe id="zh-task-frame" title="ZHENLI Secretarial Task Hub" loading="eager" src="${esc(TASK_PAGE)}" class="task-hub-frame"></iframe>`;
-  if (section === 'signing') return `<section class="module-header"><div><p class="eyebrow">SIGNING WORKFLOW</p><h1>Sequential Signing</h1><p class="muted">Continue using your existing Tencent EdgeOne signing engine and private storage.</p></div><span class="module-chip">Existing EdgeOne service</span></section>
-    <section class="integration-card"><h2>Keep your established signing process</h2><p>Create a request, upload PDFs, position signature boxes, activate sequential signers, send links, and download signed PDFs with audit records in your original signing deployment.</p>
-    <div class="integration-steps"><span>① Draft & upload</span><span>② Place signature boxes</span><span>③ Sign in order</span><span>④ Download signed PDFs</span></div>
-    ${signingLink ? `<button type="button" class="btn primary" data-action="zh-launch-signing">Open existing Signing Website ↗</button><p class="muted">${esc(signingLink.origin)}</p>` : `<div class="module-notice">Signing website address not configured. In GitHub → Settings → Secrets and variables → Actions → Variables, add <code>VITE_EDGEONE_SIGNING_URL</code> with your existing <strong>HTTPS EdgeOne signing site address</strong>, then run the web and APK workflow again.</div>`}
-    <p class="muted">The signing administrator account, active signing requests, storage and sender emails remain on Tencent EdgeOne. Signed PDFs can be downloaded there and then uploaded into the relevant DMS company folder. Automatic transfer and single sign-on are not yet enabled.</p></section>`;
+  if (section === 'signing') return signingWorkspaceHTML();
   const count = companies.length;
   return `<section class="module-header"><div><p class="eyebrow">ZHENLI WORKSPACE</p><h1>Company Secretarial Dashboard</h1><p class="muted">Quick access to your client records, statutory task tracking and sequential signing.</p></div></section>
     <div class="module-grid">
