@@ -3,9 +3,6 @@ import readExcelFile from 'read-excel-file/browser';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import './style.css';
-import './integration.css';
-import { renderIntegratedView, installHubBridge, launchSigning } from './integrated-modules.js';
-import { initSigningWorkspace, restoreSigningWorkspace, presetSigning } from './signing-workspace.js';
 
 const ROOT = document.getElementById('app');
 const BUCKET = 'dms-private';
@@ -20,7 +17,7 @@ const db = URL && KEY ? createClient(URL, KEY, {
 const state = {
   user: null, companies: [], folders: [], documents: [],
   companyId: null, folderId: null, search: '', busy: false, notice: '',
-  modal: null, module: 'portfolio', authMode: 'login', importData: null,
+  modal: null, authMode: 'login', importData: null,
   importSheet: 0, importNameCol: 0, importRegCol: -1, importStartRow: 2,
   importProgress: null, importFileName: ''
 };
@@ -106,7 +103,7 @@ function folderCard(folder) {
   return `<div class="item-row"><button class="item-main" type="button" data-action="open-folder" data-id="${folder.id}"><span class="item-icon folder-icon">📁</span><span class="item-details"><strong>${esc(folder.name)}</strong><small>${nFolders} folders • ${nFiles} documents</small></span><span class="item-chevron">›</span></button><div class="item-tools">${action('Rename','rename-folder',folder.id)}${action('Delete','delete-folder',folder.id)}</div></div>`;
 }
 function documentCard(doc) {
-  return `<div class="item-row"><button class="item-main" type="button" data-action="view-file" data-id="${doc.id}"><span class="item-icon file-icon">${/\.pdf$/i.test(doc.name)?'📕':'📄'}</span><span class="item-details"><strong>${esc(doc.name)}</strong><small>${fileSize(doc.size_bytes || 0)} • ${new Date(doc.created_at).toLocaleDateString()}</small></span><span class="item-chevron">↗</span></button><div class="item-tools">${/\.pdf$/i.test(doc.name)?action('✍ Sign','zh-create-signing',doc.id):''}${action('Download','download-file',doc.id)}${action('Rename','rename-file',doc.id)}${action('Delete','delete-file',doc.id)}</div></div>`;
+  return `<div class="item-row"><button class="item-main" type="button" data-action="view-file" data-id="${doc.id}"><span class="item-icon file-icon">${/\.pdf$/i.test(doc.name)?'📕':'📄'}</span><span class="item-details"><strong>${esc(doc.name)}</strong><small>${fileSize(doc.size_bytes || 0)} • ${new Date(doc.created_at).toLocaleDateString()}</small></span><span class="item-chevron">↗</span></button><div class="item-tools">${action('Download','download-file',doc.id)}${action('Rename','rename-file',doc.id)}${action('Delete','delete-file',doc.id)}</div></div>`;
 }
 function renderFolder() {
   const company=currentCompany(); if (!company) return renderCompanies();
@@ -114,7 +111,7 @@ function renderFolder() {
   const childFolders=state.folders.filter(f => f.parent_id === (current?.id || null));
   const docs=current ? state.documents.filter(d=>d.folder_id===current.id) : [];
   const crumbs = `<button type="button" data-action="home">Companies</button><span>›</span><button type="button" data-action="open-company" data-id="${company.id}">${esc(company.name)}</button>${trail.map(f=>`<span>›</span><button type="button" data-action="open-folder" data-id="${f.id}">${esc(f.name)}</button>`).join('')}`;
-  return `<div class="breadcrumbs">${crumbs}</div><div class="content-header"><div><p class="eyebrow">${current?'FOLDER CONTENTS':'COMPANY DOCUMENTS'}</p><h1>${esc(current?.name||company.name)}</h1><p class="muted">${current ? `${childFolders.length} subfolders • ${docs.length} documents` : esc(company.registration_no||'Select a statutory category below')}</p></div><div class="header-buttons">${action('+ New '+(current?'subfolder':'folder'),'new-folder','','secondary')}${action('✍ New signing','zh-create-signing')} ${current?action('↑ Upload documents','upload-trigger','','primary'):''}</div></div>
+  return `<div class="breadcrumbs">${crumbs}</div><div class="content-header"><div><p class="eyebrow">${current?'FOLDER CONTENTS':'COMPANY DOCUMENTS'}</p><h1>${esc(current?.name||company.name)}</h1><p class="muted">${current ? `${childFolders.length} subfolders • ${docs.length} documents` : esc(company.registration_no||'Select a statutory category below')}</p></div><div class="header-buttons">${action('+ New '+(current?'subfolder':'folder'),'new-folder','','secondary')}${current?action('↑ Upload documents','upload-trigger','','primary'):''}</div></div>
   ${current?`<div class="upload-zone" id="dropzone" role="button" tabindex="0"><strong>↑ Upload documents here</strong><span>Choose files or drop files here. Max 50 MB per file.</span></div>`:`<div class="info-strip">Your 11 standard categories are shown below. Open a category to upload files or create nested folders.</div>`}
   <section class="items"><div class="section-caption">FOLDERS <span>${childFolders.length}</span></div>${childFolders.map(folderCard).join('') || '<div class="empty-line">No subfolders yet.</div>'}
   ${current ? `<div class="section-caption">DOCUMENTS <span>${docs.length}</span></div>${docs.map(documentCard).join('') || '<div class="empty-line">No documents in this folder. Upload PDFs, Word documents, Excel files or images.</div>'}` : ''}</section>`;
@@ -145,11 +142,6 @@ function autoColumns() {
   }
   state.importNameCol=best.name;state.importRegCol=best.reg;state.importStartRow=best.start;
 }
-function colName(index) {
-  let n=index+1, label='';
-  while(n>0){n--; label=String.fromCharCode(65+n%26)+label;n=Math.floor(n/26);}
-  return label;
-}
 function columnOptions(selected, includeNone=false) {
   const rows=getImportRows(), count=Math.min(80, Math.max(1,...rows.slice(0,30).map(x=>x.length)));
   return `${includeNone?`<option value="-1" ${selected<0?'selected':''}>Not available</option>`:''}${Array.from({length:count},(_,i)=>`<option value="${i}" ${selected===i?'selected':''}>${colName(i)} — ${esc(norm(rows[state.importStartRow-2]?.[i]).slice(0,48)||'Column '+(i+1))}</option>`).join('')}`;
@@ -168,22 +160,12 @@ function renderImportModal() {
 function render() {
   if (!db) { ROOT.innerHTML=`<div class="auth-page"><div class="auth-card"><h2>Setup needed</h2><p>To run the DMS, configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as described in README.md, then build or deploy.</p></div></div>`;return; }
   if (!state.user) {ROOT.innerHTML=renderAuth();return;}
-  ROOT.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="brandmark">Z</div><div><strong>ZHENLI</strong><small>DOCUMENT MANAGEMENT</small></div></div><div class="side-label">WORKSPACE</div>
-  <button class="nav-item ${state.module==='dashboard'?'selected':''}" data-action="zh-module" data-id="dashboard"><span class="zh-nav-icon">▦</span> Overview</button>
-  <button class="nav-item ${state.module==='portfolio'?'selected':''}" data-action="zh-module" data-id="portfolio"><span class="zh-nav-icon">📁</span> Company portfolio <b>${state.companies.length}</b></button>
-  <button class="nav-item ${state.module==='tasks'?'selected':''}" data-action="zh-module" data-id="tasks"><span class="zh-nav-icon">📋</span> Secretarial Task Hub</button>
-  <button class="nav-item ${state.module==='signing'?'selected':''}" data-action="zh-module" data-id="signing"><span class="zh-nav-icon">✍️</span> Sequential Signing</button><div class="sidebar-footer"><div class="account">${esc(state.user.email||'Signed in')}</div>${action('Sign out','sign-out')}</div></aside>
-  <div class="main-column"><header class="topbar"><div class="top-title">Document Management System <span>Web + Android</span></div><div class="top-right"><span class="online-dot"></span> Private workspace</div></header><div class="zh-mobile-nav">
-      <button data-action="zh-module" data-id="dashboard" class="${state.module==='dashboard'?'active':''}">Overview</button>
-      <button data-action="zh-module" data-id="portfolio" class="${state.module==='portfolio'?'active':''}">Documents</button>
-      <button data-action="zh-module" data-id="tasks" class="${state.module==='tasks'?'active':''}">Tasks</button>
-      <button data-action="zh-module" data-id="signing" class="${state.module==='signing'?'active':''}">Signing</button>
-    </div><main class="main-content ${state.module==='tasks'?'zh-hub-container':''}">${state.module==='portfolio'?(state.companyId?renderFolder():renderCompanies()):renderIntegratedView(state.module,state.companies)}</main></div></div>
+  ROOT.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="brandmark">Z</div><div><strong>ZHENLI</strong><small>DOCUMENT MANAGEMENT</small></div></div><div class="side-label">WORKSPACE</div><button class="nav-item ${!state.companyId?'selected':''}" data-action="home"><span>▦</span> Company portfolio <b>${state.companies.length}</b></button><div class="sidebar-footer"><div class="account">${esc(state.user.email||'Signed in')}</div>${action('Sign out','sign-out')}</div></aside>
+  <div class="main-column"><header class="topbar"><div class="top-title">Document Management System <span>Web + Android</span></div><div class="top-right"><span class="online-dot"></span> Private workspace</div></header><main class="main-content">${state.companyId?renderFolder():renderCompanies()}</main></div></div>
   ${state.notice ? `<div class="toast" role="status">${esc(state.notice)} ${action('✕','dismiss')}</div>` : ''}
   ${state.busy ? '<div class="busy-bar">Working… please keep this page open</div>' : ''}
   ${modalHTML()}
   <input id="document-upload" type="file" multiple hidden />`;
-  if(state.module==='signing') queueMicrotask(restoreSigningWorkspace);
 }
 
 function openCompany(id){state.companyId=id;state.folderId=null;state.search='';busyDo(reloadContent);}
@@ -280,13 +262,7 @@ ROOT.addEventListener('click', event=>{
   if(state.busy) return;
   if(a==='auth-login'||a==='auth-signup'){state.authMode=a==='auth-login'?'login':'signup';state.notice='';render();return;}
   if(a==='sign-out'){busyDo(async()=>{check((await db.auth.signOut()).error);state.user=null;state.companies=[];state.companyId=null;state.notice='';});return;}
-  if(a==='zh-module'){
-    if(!['dashboard','portfolio','tasks','signing'].includes(id))return;
-    state.module=id;state.companyId=null;state.folderId=null;state.search='';render();return;
-  }
-  if(a==='zh-launch-signing'){void launchSigning().catch(showError);return;}
-  if(a==='zh-create-signing'){presetSigning(state.companyId,id);state.module='signing';render();return;}
-  if(a==='home'){state.module='portfolio';state.companyId=null;state.folderId=null;state.search='';render();return;}
+  if(a==='home'){state.companyId=null;state.folderId=null;state.search='';render();return;}
   if(a==='open-company'){openCompany(id);return;}
   if(a==='open-folder'){openFolder(id);return;}
   if(a==='new-company'){state.modal={kind:'company'};render();return;}
@@ -348,13 +324,7 @@ ROOT.addEventListener('change',e=>{
     busyDo(async()=>{
       if(!/\.xlsx$/i.test(file.name))throw new Error('Please select an .xlsx Excel file.');
       if(file.size>20*1024*1024)throw new Error('Excel file exceeds 20 MB.');
-      const discovered = await readExcelFile(file,{getSheets:true});
-      const sheets = [];
-      for(const entry of discovered){
-        const sheet=entry.name;
-        sheets.push({sheet,data:await readExcelFile(file,{sheet})});
-      }
-      state.importData=sheets;
+      state.importData=await readExcelFile(file);
       state.importFileName=file.name;
       if(!Array.isArray(state.importData)||!state.importData.length)throw new Error('Excel file has no worksheets.');
       state.importSheet=0;autoColumns();render();
@@ -371,8 +341,6 @@ ROOT.addEventListener('keydown',e=>{if(e.target.id==='dropzone' && (e.key==='Ent
 ROOT.addEventListener('click',e=>{if(e.target.closest('#dropzone')){if(!state.busy)document.getElementById('document-upload').click();}});
 
 async function init() {
-  if(db) installHubBridge(db,()=>state.user,()=>state.companies,showError);
-  if(db) initSigningWorkspace(db,()=>state.user,()=>state.companies);
   if(!db){render();return;}
   try {
     const {data,error}=await db.auth.getUser();

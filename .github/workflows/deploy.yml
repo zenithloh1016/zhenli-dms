@@ -10,8 +10,6 @@ permissions:
 concurrency:
   group: pages
   cancel-in-progress: false
-env:
-  VITE_EDGEONE_SIGNING_URL: ${{ vars.VITE_EDGEONE_SIGNING_URL }}
 jobs:
   web:
     runs-on: ubuntu-latest
