@@ -1,0 +1,6 @@
+{
+  "appId": "com.zhenli.dms",
+  "appName": "ZHENLI Document Management",
+  "webDir": "dist",
+  "server": { "androidScheme": "https" }
+}
