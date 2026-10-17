@@ -3,6 +3,8 @@ import readExcelFile from 'read-excel-file/browser';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import './style.css';
+import './integration.css';
+import { renderIntegratedView, installHubBridge, launchSigning } from './integrated-modules.js';
 
 const ROOT = document.getElementById('app');
 const BUCKET = 'dms-private';
@@ -17,7 +19,7 @@ const db = URL && KEY ? createClient(URL, KEY, {
 const state = {
   user: null, companies: [], folders: [], documents: [],
   companyId: null, folderId: null, search: '', busy: false, notice: '',
-  modal: null, authMode: 'login', importData: null,
+  modal: null, module: 'portfolio', authMode: 'login', importData: null,
   importSheet: 0, importNameCol: 0, importRegCol: -1, importStartRow: 2,
   importProgress: null, importFileName: ''
 };
@@ -142,6 +144,11 @@ function autoColumns() {
   }
   state.importNameCol=best.name;state.importRegCol=best.reg;state.importStartRow=best.start;
 }
+function colName(index) {
+  let n=index+1, label='';
+  while(n>0){n--; label=String.fromCharCode(65+n%26)+label;n=Math.floor(n/26);}
+  return label;
+}
 function columnOptions(selected, includeNone=false) {
   const rows=getImportRows(), count=Math.min(80, Math.max(1,...rows.slice(0,30).map(x=>x.length)));
   return `${includeNone?`<option value="-1" ${selected<0?'selected':''}>Not available</option>`:''}${Array.from({length:count},(_,i)=>`<option value="${i}" ${selected===i?'selected':''}>${colName(i)} — ${esc(norm(rows[state.importStartRow-2]?.[i]).slice(0,48)||'Column '+(i+1))}</option>`).join('')}`;
@@ -160,8 +167,17 @@ function renderImportModal() {
 function render() {
   if (!db) { ROOT.innerHTML=`<div class="auth-page"><div class="auth-card"><h2>Setup needed</h2><p>To run the DMS, configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as described in README.md, then build or deploy.</p></div></div>`;return; }
   if (!state.user) {ROOT.innerHTML=renderAuth();return;}
-  ROOT.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="brandmark">Z</div><div><strong>ZHENLI</strong><small>DOCUMENT MANAGEMENT</small></div></div><div class="side-label">WORKSPACE</div><button class="nav-item ${!state.companyId?'selected':''}" data-action="home"><span>▦</span> Company portfolio <b>${state.companies.length}</b></button><div class="sidebar-footer"><div class="account">${esc(state.user.email||'Signed in')}</div>${action('Sign out','sign-out')}</div></aside>
-  <div class="main-column"><header class="topbar"><div class="top-title">Document Management System <span>Web + Android</span></div><div class="top-right"><span class="online-dot"></span> Private workspace</div></header><main class="main-content">${state.companyId?renderFolder():renderCompanies()}</main></div></div>
+  ROOT.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="brandmark">Z</div><div><strong>ZHENLI</strong><small>DOCUMENT MANAGEMENT</small></div></div><div class="side-label">WORKSPACE</div>
+  <button class="nav-item ${state.module==='dashboard'?'selected':''}" data-action="zh-module" data-id="dashboard"><span class="zh-nav-icon">▦</span> Overview</button>
+  <button class="nav-item ${state.module==='portfolio'?'selected':''}" data-action="zh-module" data-id="portfolio"><span class="zh-nav-icon">📁</span> Company portfolio <b>${state.companies.length}</b></button>
+  <button class="nav-item ${state.module==='tasks'?'selected':''}" data-action="zh-module" data-id="tasks"><span class="zh-nav-icon">📋</span> Secretarial Task Hub</button>
+  <button class="nav-item ${state.module==='signing'?'selected':''}" data-action="zh-module" data-id="signing"><span class="zh-nav-icon">✍️</span> Sequential Signing</button><div class="sidebar-footer"><div class="account">${esc(state.user.email||'Signed in')}</div>${action('Sign out','sign-out')}</div></aside>
+  <div class="main-column"><header class="topbar"><div class="top-title">Document Management System <span>Web + Android</span></div><div class="top-right"><span class="online-dot"></span> Private workspace</div></header><div class="zh-mobile-nav">
+      <button data-action="zh-module" data-id="dashboard" class="${state.module==='dashboard'?'active':''}">Overview</button>
+      <button data-action="zh-module" data-id="portfolio" class="${state.module==='portfolio'?'active':''}">Documents</button>
+      <button data-action="zh-module" data-id="tasks" class="${state.module==='tasks'?'active':''}">Tasks</button>
+      <button data-action="zh-module" data-id="signing" class="${state.module==='signing'?'active':''}">Signing</button>
+    </div><main class="main-content ${state.module==='tasks'?'zh-hub-container':''}">${state.module==='portfolio'?(state.companyId?renderFolder():renderCompanies()):renderIntegratedView(state.module,state.companies)}</main></div></div>
   ${state.notice ? `<div class="toast" role="status">${esc(state.notice)} ${action('✕','dismiss')}</div>` : ''}
   ${state.busy ? '<div class="busy-bar">Working… please keep this page open</div>' : ''}
   ${modalHTML()}
@@ -262,7 +278,12 @@ ROOT.addEventListener('click', event=>{
   if(state.busy) return;
   if(a==='auth-login'||a==='auth-signup'){state.authMode=a==='auth-login'?'login':'signup';state.notice='';render();return;}
   if(a==='sign-out'){busyDo(async()=>{check((await db.auth.signOut()).error);state.user=null;state.companies=[];state.companyId=null;state.notice='';});return;}
-  if(a==='home'){state.companyId=null;state.folderId=null;state.search='';render();return;}
+  if(a==='zh-module'){
+    if(!['dashboard','portfolio','tasks','signing'].includes(id))return;
+    state.module=id;state.companyId=null;state.folderId=null;state.search='';render();return;
+  }
+  if(a==='zh-launch-signing'){void launchSigning().catch(showError);return;}
+  if(a==='home'){state.module='portfolio';state.companyId=null;state.folderId=null;state.search='';render();return;}
   if(a==='open-company'){openCompany(id);return;}
   if(a==='open-folder'){openFolder(id);return;}
   if(a==='new-company'){state.modal={kind:'company'};render();return;}
@@ -324,7 +345,13 @@ ROOT.addEventListener('change',e=>{
     busyDo(async()=>{
       if(!/\.xlsx$/i.test(file.name))throw new Error('Please select an .xlsx Excel file.');
       if(file.size>20*1024*1024)throw new Error('Excel file exceeds 20 MB.');
-      state.importData=await readExcelFile(file);
+      const discovered = await readExcelFile(file,{getSheets:true});
+      const sheets = [];
+      for(const entry of discovered){
+        const sheet=entry.name;
+        sheets.push({sheet,data:await readExcelFile(file,{sheet})});
+      }
+      state.importData=sheets;
       state.importFileName=file.name;
       if(!Array.isArray(state.importData)||!state.importData.length)throw new Error('Excel file has no worksheets.');
       state.importSheet=0;autoColumns();render();
@@ -341,6 +368,7 @@ ROOT.addEventListener('keydown',e=>{if(e.target.id==='dropzone' && (e.key==='Ent
 ROOT.addEventListener('click',e=>{if(e.target.closest('#dropzone')){if(!state.busy)document.getElementById('document-upload').click();}});
 
 async function init() {
+  if(db) installHubBridge(db,()=>state.user,()=>state.companies,showError);
   if(!db){render();return;}
   try {
     const {data,error}=await db.auth.getUser();
