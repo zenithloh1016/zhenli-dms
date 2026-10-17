@@ -6,7 +6,9 @@ import './style.css';
 
 const ROOT = document.getElementById('app');
 const BUCKET = 'dms-private';
-const URL = import.meta.env.VITE_SUPABASE_URL;
+const rawSupabaseUrl = String(import.meta.env.VITE_SUPABASE_URL || '').trim().replace(/^['"]|['"]$/g, '');
+const parsedSupabaseUrl = rawSupabaseUrl ? new globalThis.URL(rawSupabaseUrl) : null;
+const URL = parsedSupabaseUrl?.protocol === 'https:' && parsedSupabaseUrl.hostname.endsWith('.supabase.co') ? parsedSupabaseUrl.origin : '';
 const KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const db = URL && KEY ? createClient(URL, KEY, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false }
