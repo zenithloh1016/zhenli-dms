@@ -3,6 +3,7 @@ import readExcelFile from 'read-excel-file/browser';
 import { Capacitor } from '@capacitor/core';
 import { Browser } from '@capacitor/browser';
 import './style.css';
+import { signingWorkspaceHTML, initSigningWorkspace, restoreSigningWorkspace, resetSigningWorkspace, presetSigning } from './signing-workspace.js';
 
 const ROOT = document.getElementById('app');
 const BUCKET = 'dms-private';
@@ -15,7 +16,7 @@ const db = URL && KEY ? createClient(URL, KEY, {
 }) : null;
 
 const state = {
-  user: null, companies: [], folders: [], documents: [],
+  user: null, companies: [], folders: [], documents: [], page: 'documents',
   companyId: null, folderId: null, search: '', busy: false, notice: '',
   modal: null, authMode: 'login', importData: null,
   importSheet: 0, importNameCol: 0, importRegCol: -1, importStartRow: 2,
@@ -103,7 +104,7 @@ function folderCard(folder) {
   return `<div class="item-row"><button class="item-main" type="button" data-action="open-folder" data-id="${folder.id}"><span class="item-icon folder-icon">📁</span><span class="item-details"><strong>${esc(folder.name)}</strong><small>${nFolders} folders • ${nFiles} documents</small></span><span class="item-chevron">›</span></button><div class="item-tools">${action('Rename','rename-folder',folder.id)}${action('Delete','delete-folder',folder.id)}</div></div>`;
 }
 function documentCard(doc) {
-  return `<div class="item-row"><button class="item-main" type="button" data-action="view-file" data-id="${doc.id}"><span class="item-icon file-icon">${/\.pdf$/i.test(doc.name)?'📕':'📄'}</span><span class="item-details"><strong>${esc(doc.name)}</strong><small>${fileSize(doc.size_bytes || 0)} • ${new Date(doc.created_at).toLocaleDateString()}</small></span><span class="item-chevron">↗</span></button><div class="item-tools">${action('Download','download-file',doc.id)}${action('Rename','rename-file',doc.id)}${action('Delete','delete-file',doc.id)}</div></div>`;
+  return `<div class="item-row"><button class="item-main" type="button" data-action="view-file" data-id="${doc.id}"><span class="item-icon file-icon">${/\.pdf$/i.test(doc.name)?'📕':'📄'}</span><span class="item-details"><strong>${esc(doc.name)}</strong><small>${fileSize(doc.size_bytes || 0)} • ${new Date(doc.created_at).toLocaleDateString()}</small></span><span class="item-chevron">↗</span></button><div class="item-tools">${/\.pdf$/i.test(doc.name)?action('✍ Sign','zh-create-signing',doc.id):''}${action('Download','download-file',doc.id)}${action('Rename','rename-file',doc.id)}${action('Delete','delete-file',doc.id)}</div></div>`;
 }
 function renderFolder() {
   const company=currentCompany(); if (!company) return renderCompanies();
@@ -111,7 +112,7 @@ function renderFolder() {
   const childFolders=state.folders.filter(f => f.parent_id === (current?.id || null));
   const docs=current ? state.documents.filter(d=>d.folder_id===current.id) : [];
   const crumbs = `<button type="button" data-action="home">Companies</button><span>›</span><button type="button" data-action="open-company" data-id="${company.id}">${esc(company.name)}</button>${trail.map(f=>`<span>›</span><button type="button" data-action="open-folder" data-id="${f.id}">${esc(f.name)}</button>`).join('')}`;
-  return `<div class="breadcrumbs">${crumbs}</div><div class="content-header"><div><p class="eyebrow">${current?'FOLDER CONTENTS':'COMPANY DOCUMENTS'}</p><h1>${esc(current?.name||company.name)}</h1><p class="muted">${current ? `${childFolders.length} subfolders • ${docs.length} documents` : esc(company.registration_no||'Select a statutory category below')}</p></div><div class="header-buttons">${action('+ New '+(current?'subfolder':'folder'),'new-folder','','secondary')}${current?action('↑ Upload documents','upload-trigger','','primary'):''}</div></div>
+  return `<div class="breadcrumbs">${crumbs}</div><div class="content-header"><div><p class="eyebrow">${current?'FOLDER CONTENTS':'COMPANY DOCUMENTS'}</p><h1>${esc(current?.name||company.name)}</h1><p class="muted">${current ? `${childFolders.length} subfolders • ${docs.length} documents` : esc(company.registration_no||'Select a statutory category below')}</p></div><div class="header-buttons">${action('+ New '+(current?'subfolder':'folder'),'new-folder','','secondary')}${action('✍ Create signing request','zh-create-signing','', 'secondary')}${current?action('↑ Upload documents','upload-trigger','','primary'):''}</div></div>
   ${current?`<div class="upload-zone" id="dropzone" role="button" tabindex="0"><strong>↑ Upload documents here</strong><span>Choose files or drop files here. Max 50 MB per file.</span></div>`:`<div class="info-strip">Your 11 standard categories are shown below. Open a category to upload files or create nested folders.</div>`}
   <section class="items"><div class="section-caption">FOLDERS <span>${childFolders.length}</span></div>${childFolders.map(folderCard).join('') || '<div class="empty-line">No subfolders yet.</div>'}
   ${current ? `<div class="section-caption">DOCUMENTS <span>${docs.length}</span></div>${docs.map(documentCard).join('') || '<div class="empty-line">No documents in this folder. Upload PDFs, Word documents, Excel files or images.</div>'}` : ''}</section>`;
@@ -160,12 +161,13 @@ function renderImportModal() {
 function render() {
   if (!db) { ROOT.innerHTML=`<div class="auth-page"><div class="auth-card"><h2>Setup needed</h2><p>To run the DMS, configure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY as described in README.md, then build or deploy.</p></div></div>`;return; }
   if (!state.user) {ROOT.innerHTML=renderAuth();return;}
-  ROOT.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="brandmark">Z</div><div><strong>ZHENLI</strong><small>DOCUMENT MANAGEMENT</small></div></div><div class="side-label">WORKSPACE</div><button class="nav-item ${!state.companyId?'selected':''}" data-action="home"><span>▦</span> Company portfolio <b>${state.companies.length}</b></button><div class="sidebar-footer"><div class="account">${esc(state.user.email||'Signed in')}</div>${action('Sign out','sign-out')}</div></aside>
-  <div class="main-column"><header class="topbar"><div class="top-title">Document Management System <span>Web + Android</span></div><div class="top-right"><span class="online-dot"></span> Private workspace</div></header><main class="main-content">${state.companyId?renderFolder():renderCompanies()}</main></div></div>
+  ROOT.innerHTML = `<div class="shell"><aside class="sidebar"><div class="brand"><div class="brandmark">Z</div><div><strong>ZHENLI</strong><small>DOCUMENT MANAGEMENT</small></div></div><div class="side-label">WORKSPACE</div><button class="nav-item ${state.page==='documents'?'selected':''}" data-action="home"><span>▦</span> Company portfolio <b>${state.companies.length}</b></button><button class="nav-item ${state.page==='signing'?'selected':''}" data-action="show-signing"><span>✍</span> Sequential Signing</button><div class="sidebar-footer"><div class="account">${esc(state.user.email||'Signed in')}</div>${action('Sign out','sign-out')}</div></aside>
+  <div class="main-column"><header class="topbar"><div class="top-title">Document Management System <span>Web + Android</span></div><div class="top-right"><span class="online-dot"></span> Private workspace</div></header><nav class="zh-dms-tabs" aria-label="DMS sections"><button type="button" data-action="show-documents" class="${state.page==='documents'?'selected':''}" aria-pressed="${state.page==='documents'}">📁 Documents</button><button type="button" data-action="show-signing" class="${state.page==='signing'?'selected':''}" aria-pressed="${state.page==='signing'}">✍ Sequential Signing</button></nav><main class="main-content">${state.page==='signing'?signingWorkspaceHTML():state.companyId?renderFolder():renderCompanies()}</main></div></div>
   ${state.notice ? `<div class="toast" role="status">${esc(state.notice)} ${action('✕','dismiss')}</div>` : ''}
   ${state.busy ? '<div class="busy-bar">Working… please keep this page open</div>' : ''}
   ${modalHTML()}
   <input id="document-upload" type="file" multiple hidden />`;
+  if(state.page==='signing')queueMicrotask(restoreSigningWorkspace);
 }
 
 function openCompany(id){state.companyId=id;state.folderId=null;state.search='';busyDo(reloadContent);}
@@ -261,8 +263,11 @@ ROOT.addEventListener('click', event=>{
   if(a==='close-modal' && !state.busy){state.modal=null;state.importData=null;render();return;}
   if(state.busy) return;
   if(a==='auth-login'||a==='auth-signup'){state.authMode=a==='auth-login'?'login':'signup';state.notice='';render();return;}
-  if(a==='sign-out'){busyDo(async()=>{check((await db.auth.signOut()).error);state.user=null;state.companies=[];state.companyId=null;state.notice='';});return;}
-  if(a==='home'){state.companyId=null;state.folderId=null;state.search='';render();return;}
+  if(a==='sign-out'){busyDo(async()=>{check((await db.auth.signOut()).error);state.user=null;state.companies=[];state.companyId=null;state.page='documents';resetSigningWorkspace();state.notice='';});return;}
+  if(a==='show-signing'){state.page='signing';render();return;}
+  if(a==='show-documents'){state.page='documents';render();return;}
+  if(a==='zh-create-signing'){presetSigning(state.companyId,id);state.page='signing';render();return;}
+  if(a==='home'){state.page='documents';state.companyId=null;state.folderId=null;state.search='';render();return;}
   if(a==='open-company'){openCompany(id);return;}
   if(a==='open-folder'){openFolder(id);return;}
   if(a==='new-company'){state.modal={kind:'company'};render();return;}
@@ -342,6 +347,7 @@ ROOT.addEventListener('click',e=>{if(e.target.closest('#dropzone')){if(!state.bu
 
 async function init() {
   if(!db){render();return;}
+  initSigningWorkspace(db,()=>state.user,()=>state.companies);
   try {
     const {data,error}=await db.auth.getUser();
     if(error && !/session missing/i.test(error.message)) console.warn(error.message);
@@ -349,7 +355,7 @@ async function init() {
     if(state.user)await refresh();
     render();
     db.auth.onAuthStateChange((event,session)=>{
-      if(event==='SIGNED_OUT'){state.user=null;state.companyId=null;state.companies=[];state.folders=[];state.documents=[];render();}
+      if(event==='SIGNED_OUT'){state.user=null;state.companyId=null;state.companies=[];state.folders=[];state.documents=[];state.page='documents';resetSigningWorkspace();render();}
       if(event==='SIGNED_IN' && session?.user && (!state.user || state.user.id!==session.user.id)){
         state.user=session.user;Promise.resolve().then(refresh).catch(showError);
       }
