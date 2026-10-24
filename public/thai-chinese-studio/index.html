@@ -1,0 +1,236 @@
+<!doctype html>
+<html lang="zh-Hans">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b1328">
+<meta name="description" content="Thai Chinese Studio - live microphone subtitles, web and Android.">
+<title>Thai Chinese Studio · 泰语实时中文字幕</title>
+<style>
+:root { color-scheme:dark;--bg:#0b1328;--surface:#15213a;--line:#283c58;--mint:#73e9c8;--text:#f3f7ff;--muted:#a9b8ce;--blue:#83baff;--warning:#ffd08c }
+* {box-sizing:border-box} body{margin:0;background:radial-gradient(ellipse at top right,#183453 0,#0b1328 53%);min-height:100dvh;color:var(--text);font:15px/1.5 system-ui,-apple-system,"Noto Sans SC",sans-serif}
+.wrap{max-width:800px;padding:24px 19px 60px;margin:0 auto}
+.topline{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:10px}
+.brand{font-size:14px;font-weight:700;letter-spacing:.07em;color:var(--mint)}
+.pill{border:1px solid #335467;background:#1a3046;color:#b1fbe8;border-radius:100px;padding:6px 11px;font-size:12px}
+h1{font-size:clamp(27px,5.5vw,39px);line-height:1.2;margin:10px 0 12px;letter-spacing:-.03em}
+.lead{color:var(--muted);margin:0 0 25px;max-width:600px}
+.panel{background:linear-gradient(145deg,#182842,#111d33);border:1px solid var(--line);border-radius:20px;padding:20px;margin:16px 0;box-shadow:0 10px 26px #0002}
+.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.row > .grow{flex:1}
+button{font-family:inherit;cursor:pointer;border:0;padding:12px 16px;border-radius:12px;font-weight:750;font-size:14px}
+button:disabled{cursor:not-allowed;opacity:.6}
+.primary{background:var(--mint);color:#09352f}.secondary{background:#263a57;color:var(--text);border:1px solid #39536f}.danger{background:#58303c;color:#fff}
+h2{font-size:15px;color:#bee9f7;font-weight:750;margin:0 0 12px}
+.display{border:1px solid #35536a;border-radius:17px;background:#090f1d;padding:17px 18px;min-height:132px;display:flex;align-items:center;word-break:break-word}
+.chinese{color:#faffff;font-size:clamp(24px,5vw,33px);line-height:1.38;font-weight:700;letter-spacing:.01em}
+.thai{color:#c5e4ff;font-size:18px;line-height:1.5;min-height:35px;white-space:pre-wrap;overflow-wrap:anywhere}
+.status{margin:16px 0;color:#d5e0f2;font-size:13px;background:#1b2942;border:1px solid #30445f;padding:13px;border-radius:12px;min-height:48px}
+.small{font-size:12px;color:var(--muted)}.warning{color:var(--warning)}
+textarea{resize:vertical;width:100%;min-height:96px;background:#0e182c;color:var(--text);border:1px solid #415570;border-radius:12px;padding:14px;font-size:17px;font-family:inherit}
+textarea:focus{outline:2px solid var(--mint)}
+.settings{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+input[type=checkbox]{accent-color:#75e4c0}input[type=range]{accent-color:#83baff}
+footer{margin:28px 0;text-align:center;font-size:12px;color:#8fa5c1}
+#history{font-size:13px;max-height:150px;overflow:auto;color:#bbcadf;white-space:pre-wrap;word-break:break-word}
+code{color:#96ddd4}a{color:#9dcaff}
+</style></head>
+<body>
+<main class="wrap">
+ <div class="topline"><div class="brand">✦ THAI CHINESE STUDIO</div><span class="pill" id="mode">● WEB · TH → 中文</span></div>
+ <h1>听泰语，看中文。<br>Thai → Chinese Live</h1>
+ <p class="lead">全新独立版 · 实时识别泰语，将句子翻译成简体中文。免注册、无需 API Key。<br>Brand-new web application · Thai microphone transcription and Chinese subtitles.</p>
+ <section class="panel">
+  <h2>01 · LIVE MICROPHONE</h2>
+  <div class="row">
+   <button id="start" class="primary">🎙 开始实时翻译 · Start</button>
+   <button id="stop" class="danger" disabled>■ 停止 · Stop</button>
+   <button id="copy" class="secondary">⧉ 复制字幕 · Copy</button>
+  </div>
+  <div class="status" role="status" aria-live="polite" id="status">Ready. Use Chrome on Android/desktop, enable microphone, then tap Start.</div>
+  <div class="settings"><label><input id="partial" type="checkbox"> Faster previews (higher free quota use)</label>
+   <label>文字大小 <input id="size" type="range" min="22" max="42" value="31" aria-label="Chinese text size"></label>
+  </div>
+  <p class="small warning">⚠ Live recording depends on your browser's Thai speech-recognition support. For protected videos or internal audio, website capture is not guaranteed; play audio aloud near your microphone.</p>
+ </section>
+ <section class="panel">
+  <h2>02 · 中文字幕 / CHINESE SUBTITLES</h2>
+  <div class="display"><div class="chinese" id="zh" aria-live="polite">请开启麦克风开始翻译</div></div>
+  <div class="small" style="margin:8px 0 16px">Powered by MyMemory translation service · Free usage is limited</div>
+  <h2>泰语识别 / THAI SPEECH DETECTED</h2>
+  <div id="th" class="thai">等待泰语语音…</div>
+ </section>
+ <section class="panel">
+  <h2>03 · TEST TRANSLATION / 测试翻译</h2>
+  <p class="small">Test translation independently of microphone permissions. Paste or type Thai and tap Translate.</p>
+  <textarea id="text" spellcheck="false" placeholder="พรุ่งนี้เราไปเที่ยวกันนะ">สวัสดีครับ วันนี้คุณสบายดีไหม</textarea>
+  <div class="row" style="margin-top:12px">
+   <button class="secondary" id="test">⇄ Translate Thai text</button>
+   <span class="small">Free upstream quota: 5,000 characters/day shared by provider IP.</span>
+  </div>
+ </section>
+ <section class="panel">
+  <h2>DIAGNOSTIC / 会话状态</h2>
+  <div id="health" class="small">Backend: not checked</div>
+  <div class="row" style="margin-top:10px"><button id="check" class="secondary">Check backend</button><button id="logs" class="secondary">Copy diagnostic</button></div>
+  <h2 style="margin-top:15px">Last recognised sentences</h2><div id="history">No recognised Thai sentences yet.</div>
+ </section>
+ <footer>Independent web application. No microphone recordings or transcripts are stored in Supabase. Browser recognition may use its provider's speech servers. Translation sentences are sent to MyMemory through an isolated Supabase function.</footer>
+</main>
+<script>
+"use strict";
+(function(){
+ const ENDPOINT="https://dzhsfqhhefwfzdrvivaj.supabase.co/functions/v1/thai-zh-bridge-v1";
+ const $=s=>document.getElementById(s);
+ const R=window.SpeechRecognition||window.webkitSpeechRecognition;
+ const elem={start:$("start"),stop:$("stop"),copy:$("copy"),status:$("status"),th:$("th"),zh:$("zh"),test:$("test"),input:$("text"),history:$("history"),check:$("check"),health:$("health"),size:$("size"),partial:$("partial")};
+ const state={wanted:false,recognizer:null,restarts:0,queue:[],busy:false,seen:[],lastPreview:"",translated:[],errors:[],timer:null,lastCall:0,session:0};
+ let serial=0;
+ function status(msg,level="info"){elem.status.textContent=msg;elem.status.style.borderColor=level==="error"?"#bc6570":"#30445f";if(level==="error")state.errors.push(msg);}
+ function setRunning(is){elem.start.disabled=is;elem.stop.disabled=!is;}
+ function putChinese(text){
+   if(!text)return;
+   state.translated.push(text);
+   if(state.translated.length>16)state.translated.shift();
+   elem.zh.textContent=state.translated.slice(-4).join(" · ");
+ }
+ function addThai(text){
+  if(!text)return;
+  state.seen.push(text);
+  if(state.seen.length>12)state.seen.shift();
+  elem.th.textContent=state.seen.slice(-3).join(" · ");
+  elem.history.textContent=state.seen.join("\n");
+ }
+ async function translate(text,{manual=false}={}){
+  text=(text||"").trim();
+  if(!text)throw Error("No Thai text detected");
+  const dataBytes=new TextEncoder().encode(text);
+  if(dataBytes.length>400)throw Error("Thai phrase is too long for free provider (maximum 400 UTF-8 bytes)");
+  let resp;
+  const controller=new AbortController();
+  const timeout=setTimeout(()=>controller.abort(),15000);
+  try{
+   resp=await fetch(ENDPOINT,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({text}),signal:controller.signal});
+   const obj=await resp.json().catch(()=>({ok:false,error:"Invalid response from translation server"}));
+   if(!resp.ok||!obj.ok)throw Error(obj.error||"Backend returned HTTP "+resp.status);
+   return obj.translation;
+  }catch(error){throw Error(error.name==="AbortError"?"Translation timed out":String(error.message||error));}
+  finally{clearTimeout(timeout);}
+ }
+ function splitAtBytes(text){
+  const parts=[];let buffer="";
+  for(const ch of text){
+   if(new TextEncoder().encode(buffer+ch).length>390){if(buffer)parts.push(buffer);buffer=ch;}else buffer+=ch;
+  }
+  if(buffer)parts.push(buffer);
+  return parts;
+ }
+ function enqueue(text,preview=false){
+  if(!text.trim())return;
+  const sentence=text.trim();
+  if(preview){
+   if(!elem.partial.checked)return;
+   if(sentence===state.lastPreview)return;
+   if(Date.now()-state.lastCall<3500)return;
+   state.lastPreview=sentence;state.queue.push({text:sentence,preview:true,session:state.session});
+  }else{
+   for(const part of splitAtBytes(sentence))state.queue.push({text:part,preview:false,session:state.session});
+  }
+  consume();
+ }
+ async function consume(){
+  if(state.busy)return;
+  state.busy=true;
+  while(state.queue.length){
+   const item=state.queue.shift();
+   if(item.session!==state.session)continue;
+   try{
+    state.lastCall=Date.now();
+    const output=await translate(item.text);
+    if(item.session!==state.session)continue;
+    if(item.preview){if(state.translated.length===0)elem.zh.textContent=output;}
+    else putChinese(output);
+    status("Thai speech recognised → Chinese translation successful.");
+   }catch(e){
+    if(item.session===state.session)status("Translation error: "+e.message+" · Please try typed-text test or check free quota.", "error");
+   }
+  }
+  state.busy=false;
+ }
+ function createRecognizer(){
+  const recog=new R();
+  recog.lang="th-TH";recog.continuous=true;recog.interimResults=true;recog.maxAlternatives=1;
+  recog.onstart=()=>{state.restarts=0;status("🎙 Listening for Thai speech…");setRunning(true);};
+  recog.onresult=(event)=>{
+   let draft="",end=[];
+   for(let i=event.resultIndex;i<event.results.length;i++){
+    const candidate=event.results[i][0]?.transcript?.trim()||"";
+    if(!candidate)continue;
+    if(event.results[i].isFinal)end.push(candidate);else draft+=" "+candidate;
+   }
+   if(draft.trim())elem.th.textContent=(state.seen.slice(-2).join(" · ")+" "+draft.trim()).trim();
+   for(const phrase of end){
+    addThai(phrase);
+    if(state.seen.length>1&&state.seen[state.seen.length-2]===phrase)continue;
+    enqueue(phrase,false);
+   }
+   if(!end.length&&draft.trim())enqueue(draft.trim(),true);
+  };
+  recog.onerror=(event)=>{
+   const err=event.error||"unknown";
+   status("Speech recognition: "+err+"."+(err==="not-allowed"?" Grant microphone permission.":""),"error");
+   if(["not-allowed","service-not-allowed","language-not-supported","audio-capture"].includes(err)){state.wanted=false;setRunning(false);}
+  };
+  recog.onend=()=>{
+   if(!state.wanted){setRunning(false);return;}
+   state.restarts++;
+   if(state.restarts>12){state.wanted=false;status("Speech recognition repeatedly ended. Tap Start again or verify your Thai speech provider.","error");setRunning(false);return;}
+   const delay=Math.min(1000+state.restarts*250,4000);
+   state.timer=setTimeout(()=>{if(state.wanted)try{recog.start();}catch(e){status("Restart failed: "+e.message,"error");}},delay);
+  };
+  return recog;
+ }
+ function start(){
+  if(!R){status("This browser does not support live SpeechRecognition. Try Chrome (Android/desktop), or use the text test.","error");return;}
+  state.wanted=true;state.restarts=0;state.session++;
+  state.translated=[];state.seen=[];state.lastPreview="";state.queue=[];
+  elem.th.textContent="正在收听泰语…";elem.zh.textContent="正在等待中文翻译…";elem.history.textContent="No recognised sentences yet.";
+  state.recognizer=createRecognizer();
+  try{state.recognizer.start();setRunning(true);status("Requesting microphone permission…");}
+  catch(e){state.wanted=false;setRunning(false);status("Start failed: "+e.message,"error");}
+ }
+ function stop(){
+  state.wanted=false;clearTimeout(state.timer);
+  try{state.recognizer?.stop();}catch{}
+  state.recognizer=null;state.session++;state.queue=[];
+  setRunning(false);status("Stopped. Text test and health check remain available.");
+ }
+ async function health(){
+  elem.health.textContent="Checking isolated translation service…";
+  try{
+   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
+   const r=await fetch(ENDPOINT,{signal:controller.signal});clearTimeout(timer);
+   const info=await r.json();
+   elem.health.textContent=r.ok&&info.ok?
+     "Backend online · "+info.service+" · "+info.provider+" · no transcription data stored." :
+     "Backend returned HTTP "+r.status;
+  }catch(e){elem.health.textContent="Backend unreachable: "+(e.name==="AbortError"?"timeout":e.message);}
+ }
+ elem.start.addEventListener("click",start);
+ elem.stop.addEventListener("click",stop);
+ elem.copy.addEventListener("click",()=>{navigator.clipboard?.writeText(elem.zh.textContent).then(()=>status("Chinese subtitles copied."),()=>status("Copy blocked by browser; select text manually.","error"));});
+ elem.size.addEventListener("input",()=>elem.zh.style.fontSize=elem.size.value+"px");
+ elem.test.addEventListener("click",async()=>{
+  elem.test.disabled=true;status("Translating sample Thai text…");
+  try{const phrase=elem.input.value.trim();const translated=await translate(phrase,{manual:true});addThai(phrase);putChinese(translated);status("Test success: Thai → Simplified Chinese.");}
+  catch(e){status("Text test failed: "+e.message,"error");}
+  finally{elem.test.disabled=false;}
+ });
+ elem.check.addEventListener("click",health);
+ $("logs").addEventListener("click",()=>{
+  const diagnostic="Thai Chinese Studio Web v1\nSupport: "+!!R+"\nRunning: "+state.wanted+"\nStatus: "+elem.status.textContent+"\nHealth: "+elem.health.textContent+"\nErrors: "+state.errors.slice(-4).join(" | ");
+  navigator.clipboard?.writeText(diagnostic).then(()=>status("Diagnostic copied. Paste into chat for troubleshooting."));
+ });
+ window.addEventListener("pagehide",()=>{if(state.wanted)stop();});
+ if(!R)status("Live microphone unsupported in this browser. Android Chrome is recommended; typed translation works separately.","error");
+ health();
+})();
+</script></body></html>
